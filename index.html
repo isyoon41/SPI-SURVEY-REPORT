@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>신한정밀공업 경영진 보고서</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Babel for Runtime JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Import Map: 브라우저가 모듈 위치를 찾을 수 있도록 정의 -->
+    <script type="importmap">
+    {
+        "imports": {
+            "react": "https://esm.sh/react@18.2.0",
+            "react-dom": "https://esm.sh/react-dom@18.2.0",
+            "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+            "recharts": "https://esm.sh/recharts@2.12.2?external=react,react-dom",
+            "lucide-react": "https://esm.sh/lucide-react@0.344.0?external=react,react-dom"
+        }
+    }
+    </script>
+    
+    <!-- Styles -->
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        .animate-fade-in { animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        /* Scrollbar styling */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module">
+        import React, { useState } from 'react';
+        import { createRoot } from 'react-dom/client';
+        import { 
+            BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
+            LineChart, Line, AreaChart, Area, ReferenceLine
+        } from 'recharts';
+        import { 
+            AlertTriangle, CheckCircle, TrendingUp, Users, Zap, 
+            ArrowRight, Activity, Target, ShieldAlert, LayoutDashboard,
+            FileText, GitMerge, ListTodo
+        } from 'lucide-react';
+
+        /**
+         * 신한정밀공업 경영진 보고용 Executive Dashboard
+         * * Core Data Sources:
+         * - Survey N=73 (Response Rate 83.9%)
+         * - AMO Model Analysis
+         * - Gap Analysis (HQ vs Factory)
+         * - Text Mining & Causal Loop Diagram
+         */
+
+        // --- 1. Data Constants (Based on PDF Report) ---
+
+        const AMO_DATA = [
+            { name: '역량 (Ability)', score: 3.43, fullMark: 5, status: '강점', desc: '기술적 잠재력 및 학습 의지 확보' },
+            { name: '기회 (Opportunity)', score: 3.07, fullMark: 5, status: '보통', desc: '정보 공유 단절 및 제도적 장벽' },
+            { name: '동기 (Motivation)', score: 2.76, fullMark: 5, status: '취약', desc: '보상 불공정성 및 미래 불확실성' },
+        ];
+
+        const GAP_DATA = [
+            { category: '정보공유(A3)', HQ: 4.08, Factory: 2.77, diff: -1.31 },
+            { category: 'KPI 정합성(C4)', HQ: 3.58, Factory: 2.58, diff: -1.00 },
+            { category: '비전 공감(A1)', HQ: 3.42, Factory: 2.72, diff: -0.70 },
+            { category: '기술 역량(B1)', HQ: 3.50, Factory: 3.70, diff: 0.20 }, // 현장이 더 높음
+        ];
+
+        const KEYWORDS = [
+            { text: "설비/자재", value: 45.2, type: "negative" },
+            { text: "개발/영업", value: 21.5, type: "neutral" },
+            { text: "인력/보상", value: 16.4, type: "negative" },
+            { text: "기타", value: 17.8, type: "neutral" },
+        ];
+
+        const ROADMAP = [
+            {
+                phase: "Phase 1: Signal (신뢰 회복)",
+                timeline: "즉시 ~ 1개월",
+                items: [
+                    { title: "긴급 부품 발주", desc: "생산 중단 초래하는 핵심 자재 즉시 조달", priority: "Urgent" },
+                    { title: "현장 소통 채널 가동", desc: "식당/현장 게시판에 쉬운 언어로 경영현황 공유", priority: "High" },
+                    { title: "즉각적 소액 포상", desc: "설비 수리/개선 기여자에 상품권 등 즉시 지급", priority: "High" }
+                ]
+            },
+            {
+                phase: "Phase 2: System (연결 복원)",
+                timeline: "2개월 ~ 6개월",
+                items: [
+                    { title: "2026 평가제도 단순화", desc: "'A달성시 B보상'의 명확한 인센티브 룰 세팅", priority: "High" },
+                    { title: "핵심 인력 충원", desc: "연구소/영업팀 공백 최소화 및 TF 구성", priority: "Medium" }
+                ]
+            },
+            {
+                phase: "Phase 3: Culture (선순환 정착)",
+                timeline: "6개월 이후",
+                items: [
+                    { title: "제안-보상 선순환", desc: "현장 개선 아이디어의 이익 공유 제도화", priority: "Medium" },
+                    { title: "직무 교육 고도화", desc: "높은 학습의지(B2)를 활용한 기술 심화 교육", priority: "Low" }
+                ]
+            }
+        ];
+
+        // --- 2. Components ---
+
+        const Card = ({ title, children, className = "" }) => (
+            <div className={`bg-white rounded-lg shadow-sm border border-slate-200 p-5 ${className}`}>
+                <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    {title}
+                </h3>
+                {children}
+            </div>
+        );
+
+        const KPICard = ({ title, value, subtext, trend, icon: Icon, colorClass }) => (
+            <div className="bg-white rounded-xl p-6 border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex justify-between items-start mb-4">
+                    <div className={`p-3 rounded-lg ${colorClass} bg-opacity-10`}>
+                        <Icon className={`w-6 h-6 ${colorClass.replace('bg-', 'text-')}`} />
+                    </div>
+                    {trend && (
+                        <span className={`text-xs font-bold px-2 py-1 rounded-full ${trend === 'positive' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                            {trend === 'positive' ? 'Strong' : 'Critical'}
+                        </span>
+                    )}
+                </div>
+                <h4 className="text-slate-500 text-sm font-medium mb-1">{title}</h4>
+                <div className="text-2xl font-bold text-slate-800 mb-2">{value}</div>
+                <p className="text-xs text-slate-400">{subtext}</p>
+            </div>
+        );
+
+        // --- 3. Main Dashboard Application ---
+
+        function ShinhanReportApp() {
+            const [activeTab, setActiveTab] = useState('summary');
+
+            const renderContent = () => {
+                switch (activeTab) {
+                    case 'summary':
+                        return <ExecutiveSummaryView />;
+                    case 'analysis':
+                        return <DataAnalysisView />;
+                    case 'causal':
+                        return <CausalLoopView />;
+                    case 'roadmap':
+                        return <RoadmapView />;
+                    default:
+                        return <ExecutiveSummaryView />;
+                }
+            };
+
+            return (
+                <div className="min-h-screen bg-slate-50 font-sans text-slate-800 flex flex-col md:flex-row">
+                    {/* Sidebar Navigation */}
+                    <nav className="w-full md:w-64 bg-slate-900 text-slate-300 flex-shrink-0">
+                        <div className="p-6">
+                            <h1 className="text-white text-xl font-bold tracking-tight">SHINHAN<br/><span className="text-blue-400">PRECISION IND.</span></h1>
+                            <p className="text-xs text-slate-500 mt-2">서베이 종합 보고서<br/>v1.0 (2025.12.11)</p>
+                        </div>
+                        <div className="px-3 space-y-1">
+                            <NavButton id="summary" label="Executive Summary" icon={LayoutDashboard} active={activeTab} set={setActiveTab} />
+                            <NavButton id="analysis" label="Deep Data Analysis" icon={Activity} active={activeTab} set={setActiveTab} />
+                            <NavButton id="causal" label="Systems Thinking" icon={GitMerge} active={activeTab} set={setActiveTab} />
+                            <NavButton id="roadmap" label="Action Roadmap" icon={ListTodo} active={activeTab} set={setActiveTab} />
+                        </div>
+                    </nav>
+
+                    {/* Main Content Area */}
+                    <main className="flex-1 overflow-y-auto p-4 md:p-8">
+                        <header className="mb-8 flex justify-between items-center">
+                            <div>
+                                <h2 className="text-2xl font-bold text-slate-800">
+                                    {activeTab === 'summary' && "경영진 요약 보고 (Executive Summary)"}
+                                    {activeTab === 'analysis' && "데이터 기반 심층 진단 (Data Dive)"}
+                                    {activeTab === 'causal' && "구조적 원인 분석 (Systems Thinking)"}
+                                    {activeTab === 'roadmap' && "실행 로드맵 및 액션 아이템"}
+                                </h2>
+                                <p className="text-slate-500 text-sm mt-1">
+                                    신한정밀공업 조직 진단 및 솔루션 제안 | N=73 (응답률 84%)
+                                </p>
+                            </div>                            
+                        </header>
+
+                        {renderContent()}
+                    </main>
+                </div>
+            );
+        }
+
+        // --- Sub Components ---
+
+        const NavButton = ({ id, label, icon: Icon, active, set }) => (
+            <button
+                onClick={() => set(id)}
+                className={`w-full flex items-center gap-3 px-3 py-3 rounded-md transition-all text-sm font-medium
+                    ${active === id 
+                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50' 
+                        : 'hover:bg-slate-800 hover:text-white'}`}
+            >
+                <Icon className="w-4 h-4" />
+                {label}
+            </button>
+        );
+
+        // --- 1. Executive Summary View ---
+        const ExecutiveSummaryView = () => (
+            <div className="space-y-6 animate-fade-in">
+                {/* Headline Alert */}
+                <div className="bg-red-50 border-l-4 border-red-500 p-6 rounded-r-lg shadow-sm">
+                    <div className="flex items-start gap-4">
+                        <AlertTriangle className="w-8 h-8 text-red-500 flex-shrink-0" />
+                        <div>
+                            <h3 className="text-lg font-bold text-red-800">
+                                "엔진(역량)은 강력하나, 연료(보상)와 네비게이션(방향)이 멈춰 선 '병목 조직'"
+                            </h3>
+                            <p className="text-red-700 mt-2 text-sm leading-relaxed">
+                                구성원은 높은 기술 역량(3.43)과 회생 의지를 보유하고 있으나, 
+                                <span className="font-bold underline mx-1">설비 투자 지연과 정보 공유 단절</span>로 인해 
+                                동기(2.76)가 급격히 소진되는 '좌절된 고성과자' 단계에 진입했습니다.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Key Metrics Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <KPICard 
+                        title="조직 역량 (Ability)" 
+                        value="3.43 / 5.0" 
+                        subtext="기술적 잠재력 & 학습의지 충분" 
+                        trend="positive" 
+                        icon={Zap} 
+                        colorClass="bg-blue-500 text-blue-500" 
+                    />
+                    <KPICard 
+                        title="조직 동기 (Motivation)" 
+                        value="2.76 / 5.0" 
+                        subtext="보상 불공정 & 미래 불안 심화" 
+                        trend="negative" 
+                        icon={Target} 
+                        colorClass="bg-red-500 text-red-500" 
+                    />
+                    <KPICard 
+                        title="인식 격차 (본사vs현장)" 
+                        value="1.31 pt" 
+                        subtext="심각한 정보 비대칭 (정보공유)" 
+                        trend="negative" 
+                        icon={GitMerge} 
+                        colorClass="bg-orange-500 text-orange-500" 
+                    />
+                    <KPICard 
+                        title="긴급 이슈 (Voice)" 
+                        value="45.2 %" 
+                        subtext="설비 부품/자재 조달 마비 호소" 
+                        trend="negative" 
+                        icon={ShieldAlert} 
+                        colorClass="bg-slate-700 text-slate-700" 
+                    />
+                </div>
+
+                {/* Bottom Line Recommendation */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Card title="핵심 문제 진단">
+                        <ul className="space-y-3 text-sm text-slate-600">
+                            <li className="flex items-start gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5"></span>
+                                <span>
+                                    <strong className="text-slate-800">구조적 단절:</strong> 본사는 "회생 인가로 안정됐다"고 낙관하나, 현장은 "부품이 없어 일을 못한다"며 생계 위협을 느낌.
+                                </span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5"></span>
+                                <span>
+                                    <strong className="text-slate-800">악순환의 고리:</strong> 설비 투자 지연 → 기계 고장 → 특근 감소(실질 임금 하락) → 무기력 → 설비 방치 가속화.
+                                </span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5"></span>
+                                <span>
+                                    <strong className="text-slate-800">잔류 요인:</strong> 급여보다 "회생 비전"이 잔류의 제1요인(β=0.42)이나, 현재 경영진의 신호가 현장에 닿지 않음.
+                                </span>
+                            </li>
+                        </ul>
+                    </Card>
+                    <Card title="핵심 권고 사항">
+                        <ul className="space-y-3 text-sm text-slate-600">
+                            <li className="flex items-start gap-2">
+                                <CheckCircle className="w-4 h-4 text-green-600 mt-0.5" />
+                                <span>
+                                    <strong className="text-slate-800">Signal (신뢰 회복):</strong> 설비 부품 즉시 발주 및 오버홀 계획 공개로 경영진의 '투자 의지' 증명.
+                                </span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                                <CheckCircle className="w-4 h-4 text-green-600 mt-0.5" />
+                                <span>
+                                    <strong className="text-slate-800">System (연결):</strong> 복잡한 평가 대신, 설비 수리/제안에 대한 즉각적 소액 포상(Spot Bonus) 시행.
+                                </span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                                <CheckCircle className="w-4 h-4 text-green-600 mt-0.5" />
+                                <span>
+                                    <strong className="text-slate-800">Communication (투명성):</strong> 관리자용 장표가 아닌, 현장 게시판용 '쉬운 경영 현황판' 설치.
+                                </span>
+                            </li>
+                        </ul>
+                    </Card>
+                </div>
+            </div>
+        );
+
+        // --- 2. Data Analysis View ---
+        const DataAnalysisView = () => (
+            <div className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <Card title="AMO 모델 진단 (전사 평균)">
+                        <div className="h-64">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={AMO_DATA} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
+                                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={true} />
+                                    <XAxis type="number" domain={[0, 5]} hide />
+                                    <YAxis type="category" dataKey="name" width={100} tick={{fontSize: 12}} />
+                                    <RechartsTooltip />
+                                    <Bar dataKey="score" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={30}>
+                                        {AMO_DATA.map((entry, index) => (
+                                            <cell key={`cell-${index}`} fill={entry.score < 3 ? '#ef4444' : '#3b82f6'} />
+                                        ))}
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                        <p className="text-xs text-center text-slate-400 mt-2">
+                            * 동기(2.76)가 병목 구간. 역량(3.43)이 성과로 전환되지 못함.
+                        </p>
+                    </Card>
+
+                    <Card title="Gap Analysis: 본사 vs 제조현장">
+                        <div className="h-64">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={GAP_DATA} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                    <XAxis dataKey="category" tick={{fontSize: 12}} />
+                                    <YAxis domain={[0, 5]} />
+                                    <RechartsTooltip />
+                                    <Legend />
+                                    <Bar dataKey="HQ" name="본사(경영지원)" fill="#94a3b8" />
+                                    <Bar dataKey="Factory" name="제조현장" fill="#ef4444" />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                        <div className="text-xs text-slate-500 mt-2 p-2 bg-slate-50 rounded">
+                            <strong>Insight:</strong> 정보공유(A3) 격차 1.31점은 단순 소통 부족이 아닌 '세계관의 단절'을 의미. 본사는 낙관, 현장은 소외됨.
+                        </div>
+                    </Card>
+                </div>
+
+                <Card title="현장의 목소리 (Keyword Analysis)">
+                    <div className="flex flex-wrap gap-4 justify-center py-6">
+                        {KEYWORDS.map((k, i) => (
+                            <div 
+                                key={i} 
+                                className={`rounded-full flex items-center justify-center text-center font-bold shadow-sm transition-transform hover:scale-105
+                                    ${k.type === 'negative' ? 'bg-red-100 text-red-800 border-red-200' : 'bg-slate-100 text-slate-700 border-slate-200'}
+                                `}
+                                style={{
+                                    width: `${k.value * 3.5}px`,
+                                    height: `${k.value * 3.5}px`,
+                                    borderWidth: '1px',
+                                    fontSize: `${Math.max(10, k.value * 0.4)}px`
+                                }}
+                            >
+                                <div>
+                                    {k.text}<br/>
+                                    <span className="text-xs opacity-75">{k.value}%</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    <p className="text-center text-sm text-slate-600">
+                        "설비/자재(45.2%)"가 압도적 1위. 이는 단순 불만이 아닌 <strong>'일하고 싶어도 일할 수 없는'</strong> 구조적 마비 상태를 호소함.
+                    </p>
+                </Card>
+            </div>
+        );
+
+        // --- 3. Causal Loop View (Systems Thinking) ---
+        const CausalLoopView = () => (
+            <div className="space-y-6">
+                <div className="bg-white p-8 rounded-lg shadow-sm border border-slate-200">
+                    <h3 className="text-lg font-bold text-slate-800 mb-6 text-center">부정적 피드백 루프 (Vicious Cycle) 분석</h3>
+                    
+                    <div className="relative max-w-3xl mx-auto h-[400px]">
+                        {/* Nodes */}
+                        <div className="absolute top-0 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-lg shadow-lg z-10 text-center w-48">
+                            <div className="font-bold text-sm">트리거(Trigger)</div>
+                            <div className="text-yellow-400 font-bold">투자/자재 공급지연</div>
+                        </div>
+
+                        <div className="absolute top-1/2 right-0 transform -translate-y-1/2 bg-white border-2 border-red-500 text-red-700 px-6 py-4 rounded-lg shadow-md z-10 text-center w-48">
+                            <div className="font-bold">설비 고장 &<br/>가동 중단</div>
+                            <div className="text-xs mt-1 text-slate-500">물리적 루프</div>
+                        </div>
+
+                        <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 bg-white border border-slate-300 px-6 py-4 rounded-lg shadow-md z-10 text-center w-48">
+                            <div className="font-bold">특근 감소 &<br/>실질 소득 하락</div>
+                            <div className="text-xs mt-1 text-slate-500">경제적 루프</div>
+                        </div>
+
+                        <div className="absolute top-1/2 left-0 transform -translate-y-1/2 bg-white border border-slate-300 px-6 py-4 rounded-lg shadow-md z-10 text-center w-48">
+                            <div className="font-bold">무기력증 &<br/>설비 방치</div>
+                            <div className="text-xs mt-1 text-slate-500">심리적 루프</div>
+                        </div>
+
+                        {/* Arrows (SVG Overlay) */}
+                        <svg className="absolute inset-0 w-full h-full pointer-events-none">
+                            <defs>
+                                <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orient="auto">
+                                    <polygon points="0 0, 10 3.5, 0 7" fill="#cbd5e1" />
+                                </marker>
+                                <marker id="arrowhead-red" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orient="auto">
+                                    <polygon points="0 0, 10 3.5, 0 7" fill="#ef4444" />
+                                </marker>
+                            </defs>
+                            {/* Trigger to Equipment */}
+                            <path d="M 420 50 Q 550 50 600 160" fill="none" stroke="#ef4444" strokeWidth="3" markerEnd="url(#arrowhead-red)" strokeDasharray="5,5" />
+                            
+                            {/* Equipment to Income */}
+                            <path d="M 600 240 Q 550 350 420 350" fill="none" stroke="#94a3b8" strokeWidth="2" markerEnd="url(#arrowhead)" />
+                            
+                            {/* Income to Motivation */}
+                            <path d="M 320 350 Q 150 350 120 240" fill="none" stroke="#94a3b8" strokeWidth="2" markerEnd="url(#arrowhead)" />
+                            
+                            {/* Motivation back to Equipment (The Loop) */}
+                            <path d="M 120 160 Q 150 50 280 50 L 320 50" fill="none" stroke="#94a3b8" strokeWidth="2" opacity="0.5" />
+                            <path d="M 170 200 L 530 200" fill="none" stroke="#ef4444" strokeWidth="2" markerEnd="url(#arrowhead-red)" />
+                            <text x="350" y="190" textAnchor="middle" fill="#ef4444" fontSize="12" fontWeight="bold">악순환 심화 (방치 → 고장)</text>
+                        </svg>
+                    </div>
+
+                    <div className="mt-8 bg-blue-50 p-4 rounded-md text-sm text-blue-800 border border-blue-100">
+                        <strong>💡 핵심 인사이트 (Key Insight):</strong><br/>
+                        설비 투자는 단순한 '환경 개선'이 아닙니다. 현장 직원에게 설비는 곧 <strong>'월급(특근비)'</strong>이며, 
+                        이를 고쳐주는 것은 경영진의 <strong>'회생 의지'</strong>를 보여주는 가장 강력한 신호(Signal)입니다.
+                        이 연결고리를 끊지 않으면, 기술 역량(B1)이 아무리 높아도 성과는 창출되지 않습니다.
+                    </div>
+                </div>
+            </div>
+        );
+
+        // --- 4. Roadmap View ---
+        const RoadmapView = () => (
+            <div className="space-y-8">
+                
+                {/* Top 4 Action Items */}
+                <div className="bg-slate-800 text-white rounded-xl p-6 shadow-lg">
+                    <div className="flex items-center gap-2 mb-4">
+                        <StarIcon className="text-yellow-400" />
+                        <h3 className="text-lg font-bold">경영진을 위한 TOP 4 즉각 실행 과제</h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <ActionItem 
+                            seq="1" 
+                            title="Critical Parts 긴급 발주" 
+                            desc="가동 중단 설비 3대 부품 우선 확보 (예산 배정)" 
+                            tag="Urgent" 
+                        />
+                        <ActionItem 
+                            seq="2" 
+                            title="Spot Bonus 제도 시행" 
+                            desc="설비 수리/개선 성공 시 즉시 상품권 지급 (효능감 부여)" 
+                            tag="High Impact" 
+                        />
+                        <ActionItem 
+                            seq="3" 
+                            title="현장 중심 경영판 설치" 
+                            desc="식당에 생산/수주 현황판 설치 (가시성 확보)" 
+                            tag="Must Have" 
+                        />
+                        <ActionItem 
+                            seq="4" 
+                            title="TF 구성 공식화" 
+                            desc="연구소/영업 공백 메울 TF 발족 및 전사 공지" 
+                            tag="Strategic" 
+                        />
+                    </div>
+                </div>
+
+                {/* Phased Roadmap */}
+                <div>
+                    <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <Activity className="w-5 h-5 text-blue-600" />
+                        단계별 정상화 로드맵 (3-Phase)
+                    </h3>
+                    <div className="space-y-6 relative border-l-2 border-slate-200 ml-4 pl-8 py-2">
+                        {ROADMAP.map((phase, idx) => (
+                            <div key={idx} className="relative">
+                                <div className="absolute -left-[41px] top-0 w-6 h-6 rounded-full bg-blue-600 border-4 border-slate-50"></div>
+                                <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+                                    <div className="flex justify-between items-center mb-3">
+                                        <h4 className="font-bold text-blue-800">{phase.phase}</h4>
+                                        <span className="text-xs font-semibold bg-slate-100 text-slate-600 px-2 py-1 rounded">
+                                            {phase.timeline}
+                                        </span>
+                                    </div>
+                                    <ul className="space-y-3">
+                                        {phase.items.map((item, i) => (
+                                            <li key={i} className="flex justify-between items-start border-b border-slate-50 last:border-0 pb-2 last:pb-0">
+                                                <div>
+                                                    <div className="text-sm font-semibold text-slate-800">{item.title}</div>
+                                                    <div className="text-xs text-slate-500">{item.desc}</div>
+                                                </div>
+                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide
+                                                    ${item.priority === 'Urgent' ? 'bg-red-100 text-red-600' : 
+                                                        item.priority === 'High' ? 'bg-orange-100 text-orange-600' : 
+                                                        'bg-blue-50 text-blue-600'}`}>
+                                                    {item.priority}
+                                                </span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        );
+
+        const ActionItem = ({ seq, title, desc, tag }) => (
+            <div className="bg-slate-700/50 p-4 rounded-lg border border-slate-600 flex gap-4 items-start">
+                <div className="w-8 h-8 rounded-full bg-yellow-400 text-slate-900 font-bold flex items-center justify-center flex-shrink-0">
+                    {seq}
+                </div>
+                <div className="flex-1">
+                    <div className="flex justify-between items-start">
+                        <h4 className="font-bold text-white text-sm">{title}</h4>
+                        <span className="text-[10px] bg-slate-900 text-yellow-400 px-1.5 py-0.5 rounded border border-slate-600">{tag}</span>
+                    </div>
+                    <p className="text-xs text-slate-300 mt-1">{desc}</p>
+                </div>
+            </div>
+        );
+
+        const StarIcon = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={`w-6 h-6 ${className}`}>
+                <path fillRule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z" clipRule="evenodd" />
+            </svg>
+        );
+
+        // --- Mount ---
+        const root = createRoot(document.getElementById('root'));
+        root.render(<ShinhanReportApp />);
+
+    </script>
+</body>
+</html>
